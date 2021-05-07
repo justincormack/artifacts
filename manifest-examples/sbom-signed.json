@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "3",
+  "mediaType": "application/vnd.oci.distribution.manifest.v1+json",
+  "objects": [
+    {
+      "artifactType": "application/x.example.sbom",
+      "version": "1",
+      "components": [
+        {
+          "refType": "blob",
+          "compType": "application/x.example.sbom.document",
+          "version": "1",
+          "descriptor": {
+            "mediaType": "application/tar+gzip",
+            "size": 7023,
+            "digest": "sha256:b5b2b2c507a0944348e0303114d8d93aaaa081732b86451d9bce1f432a537bc7"
+          }
+        },
+        {
+          "refType": "reference",
+          "descriptor": {
+            "mediaType": "application/vnd.oci.image.manifest.v1+json",
+            "size": 7682,
+            "digest": "sha256:5b0bcabd1ed22e9fb1310cf6c2dec7cdef19f0ad69efa1f392e94a4333501270"
+          }
+        }
+      ]
+    },
+    {
+      "artifactType": "application/vnd.cncf.notary",
+      "version": "2",
+      "components": [
+        {
+          "refType": "blob",
+          "compType": "application/vnd.cncf.notary.signature",
+          "version": "2",
+          "descriptor": {
+            "mediaType": "application/tar+gzip",
+            "size": 7023,
+            "digest": "sha256:b5b2b2c507a0944348e0303114d8d93aaaa081732b86451d9bce1f432a537bc7"
+          }
+        }
+      ],
+      "annotations": {
+        "org.cncf.notary.v2.signature.subject": "wabbit-networks.io"
+      }
+    }
+  ]
+}
