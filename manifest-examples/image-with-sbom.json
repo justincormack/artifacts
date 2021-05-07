@@ -7,8 +7,8 @@
       "version": "2",
       "components": [
         {
-          "refType": "blob",
-          "compType": "application/vnd.oci.config",
+          "type": "blob",
+          "mediaType": "application/vnd.oci.config",
           "version": "2",
           "descriptor": {
             "mediaType": "application/vnd.oci.image.config.v1+json",
@@ -17,8 +17,8 @@
           }
         },
         {
-          "refType": "blob",
-          "compType": "application/vnd.oci.layer",
+          "type": "blob",
+          "mediaType": "application/vnd.oci.layer",
           "version": "2",
           "descriptor": {
             "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
@@ -27,8 +27,8 @@
           }
         },
         {
-          "refType": "blob",
-          "compType": "application/vnd.oci.layer",
+          "type": "blob",
+          "mediaType": "application/vnd.oci.layer",
           "version": "2",
           "descriptor": {
             "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
@@ -37,8 +37,8 @@
           }
         },
         {
-          "refType": "blob",
-          "compType": "application/vnd.oci.layer",
+          "type": "blob",
+          "mediaType": "application/vnd.oci.layer",
           "version": "2",
           "descriptor": {
             "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
@@ -53,8 +53,8 @@
       "version": "1",
       "components": [
         {
-          "refType": "blob",
-          "compType": "application/x.example.sbom.document",
+          "type": "blob",
+          "mediaType": "application/x.example.sbom.document",
           "version": "1",
           "descriptor": {
             "mediaType": "application/tar+gzip",

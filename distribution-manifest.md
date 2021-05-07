@@ -14,9 +14,9 @@ From the point of view of someone describing a new type of artifact, it is flexi
 
 So to meet both use cases, we should have a format that has a lot of extensible metadata but it has a very simple structure for the operator to use for management operations. Let us look at the management side data model first.
 
-- **`mediaType`** *string*
+- **`manifest.mediaType`** *string*
 
-  This field contains the `mediaType` of this document. This MUST be `application/vnd.oci.object.manifest.v1+json` for the JSON encoding or `application/vnd.oci.object.manifest.v1+jwt` for JSON web signature (RFC7515) encoding. The server needs this to return the media type to the application requesting this object.
+  This field contains the `mediaType` of this document. This MUST be `application/vnd.oci.distribution.manifest.v1+json` for the JSON encoding or `application/vnd.oci.distribution.manifest.v1+jwt` for JSON web signature (RFC7515) encoding. The server needs this to return the media type to the application requesting this object.
 
 - **`blobs`** *array of objects*
 
@@ -24,7 +24,7 @@ So to meet both use cases, we should have a format that has a lot of extensible 
 
 - **`references`** *array of objects*
 
-  An optional set of references to other artifacts, of this type or of other supported types that may themselves point to blobs or other references. Each object MUST have a descriptor. The descriptor MUST have **`digest`** and **`size`**. These will be traversed for garbage collection. A registry will generally want to reject uploads of manifests with references that point to objects that it cannot parse or interpret as valid.
+  An optional set of references to other artifact manifests, of this type or of other supported types that may themselves point to blobs or other references. Each object MUST have a descriptor. The descriptor MUST have **`digest`** and **`size`**. These will be traversed for garbage collection. A registry will generally want to reject uploads of manifests with references that point to objects that it cannot parse or interpret as valid.
 
 This is all the data that is needed to manage the content store from the registry operators side, and this can be used as the data model. It is easy to see how existing image manifests and index can be mapped down to this data model. However, it is too minimal for the client to be able to process it so we need to enhance it with metadata. This is where the design space gets much more complicated. We will have simple processing rules that let the server simply extract this data model from a format that is more suitable for client processing.
 
@@ -49,11 +49,13 @@ Here is a draft of a generic metadata format that should work for any sort of co
 
 - **`mediaType`** *string*
 
-  This field contains the `mediaType` of this document. This MUST be `application/vnd.oci.object.manifest.v1+json` for the JSON encoding or `application/vnd.oci.object.manifest.v1+jwt` for JSON web signature (RFC7515) encoding. The JSON web signature encoding allows an inline signature on the object. Other formats could be allowed in future.
+  This field contains the `mediaType` of this document. This MUST be `application/vnd.oci.distribution.manifest.v1+json` for the JSON encoding or `application/vnd.oci.distribution.manifest.v1+jwt` for JSON web signature (RFC7515) encoding. The JSON web signature encoding allows an inline signature on the object. Other formats could be allowed in future.
 
 - **`objects`** *array of objects*
 
   An OPTIONAL list of objects that make up this manifest. These will potentially include multiple objects of the same or different versions that the client will pick. Blob and reference links are extracted from this list for the server housekeeping activity. Note we could use a map rather than a list here, with keys corresponding to object `type`.
+
+## Objects
 
 The `objects` each correspond to items that the client may wish to process, and are defined as follows.
 
@@ -77,31 +79,48 @@ The `objects` each correspond to items that the client may wish to process, and 
 
   Standard OCI annotations as per existing standards, this is metadata that may have common fields across different objects. Arguably this should be a map of string to string array so that annotation keys can be repeated, so they map better to other structures (such as http headers) that allow repetition.
 
-- **any other data** *unspecified*
+- **`ext_`*** *unspecified*
 
-  Any other fields with any other structure. The client can use this data in any way that is appropriate, but generic tooling will not usually be able to do anything with it as there are no standards.
+  Any other fields with any other structure may be added, with the preface of `ext_`. The client can use this data in any way that is appropriate, but generic tooling will not usually be able to do anything with it as there are no standards. As `ext_` properties become standard, the `ext_` preface will be removed.
+
+## Components
 
 The `components` of an object correspond to individual parts, potentially of multiple types, for example an image has a config and some layers. The parts that are needed to extract generic data are specified but again any type specific data can be added.
 
-- **`refType`** *string*
+- **`type`** *string*
 
-  The reference type of the component, which MUST be `blob`, `reference` or not specified if the component has neither a blob or reference link. This would be for a case where it is a component that does not have a descriptor, eg it refers to something by tag not hash so is not tracked as a reference. I am also wondering if we should add `data` for a "data URI" type reference where there would be a blob but it is inlined into the object instead, useful for small unique objects to save an external blob lookup, but the client can treat them exactly like blobs.
+  The type of the component, which MUST be `blob`, `reference`. A `type` of `reference` MUST refer to other manifests types, which MAY include `application/vnd.oci.distribution.manifest`, `application/vnd.oci.image.manifest` or `application/vnd.oci.image.index`.
+
+- **`mediaType`** *string*
+
+  The OPTIONAL component type, for an image this might be `application/vnd.oci.layer` or `application/vnd.oci.config`. These benefit from standardization, as lots of artifacts use configs, which are persisted as blobs, but separated from the collection of layers. Other artifacts may have a single blob, or a collection of blobs with no distinction between them.
+
+- **`version`** *string*
+
+  An OPTIONAL version string for the type. Clients will normally look for an object with the latest version they understand, and fall back to older versions if they support them. Different versions may have different structures.
 
 - **`descriptor`** *descriptor*
 
   Standard OCI descriptor. If the component is not a `blob` or `reference` this will be ignored but the client can use it, eg for a foreign layer or for some other reference type that still wants to verify a hash, such as a bridge to another system.
 
-- **`compType`** *string*
+- **`annotations`** *string-string map*
 
-  The OPTIONAL component type, for an image this might be `application/vnd.oci.layer` or `application/vnd.oci.config`. These benefit from standardization, as lots of artifacts use configs.
+  Standard OCI annotations as per existing standards, this is metadata that may have common fields across different objects. 
 
-- **any other data** *unspecified*
+- **`ext_`*** *unspecified*
 
-  Any other fields with any other structure. The client can use this data in any way that is appropriate, but generic tooling will not usually be able to do anything with it as there are no standards.
+  Any other fields with any other structure may be added, with the preface of `ext_`. The client can use this data in any way that is appropriate, but generic tooling will not usually be able to do anything with it as there are no standards. As `ext_` properties become standard, the `ext_` preface will be removed.
 
 Now let us look at how we map various existing and proposed types to this manifest format.
 
-The simplest type is the Pointer that simply points to another object. This looks useless, but if it is signed it can act as a detached signature for the item that it points at.
+## Example Artifact Types
+
+### Single Blob Artifact
+
+The most basic persistance of an object within a registry can be a single file, persisted as `"artifactType": "application/x.example.document"`, with a single component of a single blob.
+
+![](media/document.svg)
+
 
 ```json
 {
@@ -109,15 +128,15 @@ The simplest type is the Pointer that simply points to another object. This look
   "mediaType": "application/vnd.oci.distribution.manifest.v1+json",
   "objects": [
     {
-      "artifactType": "application/vnd.oci.pointer",
+      "artifactType": "application/x.example.document",
       "version": "1",
       "components": [
         {
-          "refType": "reference",
+          "type": "blob",
           "descriptor": {
-            "mediaType": "application/vnd.oci.image.manifest.v1+json",
-            "size": 7682,
-            "digest": "sha256:5b0bcabd1ed22e9fb1310cf6c2dec7cdef19f0ad69efa1f392e94a4333501270"
+            "mediaType": "application/tar+gzip",
+            "size": 7023,
+            "digest": "sha256:b5b2b2c507a0944348e0303114d8d93aaaa081732b86451d9bce1f432a537bc7"
           }
         }
       ]
@@ -126,7 +145,11 @@ The simplest type is the Pointer that simply points to another object. This look
 }
 ```
 
-Next we will show a Relation, used to store an SBOM for example. This has a custom field `relation` for the relation type, which has some values registered with OCI as part of the format. A client that does not care about the SBOM will simply go to the first component in a relation without decoding it or fetching the SBOM. You could also store a detached signature as a relation, or indeed any other metadata about an item, which is why they are provided as a standard object type.
+### SBoM Reference Artifact
+
+Next we will show a Relation, used to store an SBoM or a signature. The `"refType": "reference"` states an `artifactType` can refer to other manifests, including the `oci.image.manifest`.
+
+![](media/sbom-image.svg)
 
 ```json
 {
@@ -138,9 +161,7 @@ Next we will show a Relation, used to store an SBOM for example. This has a cust
       "version": "1",
       "components": [
         {
-          "refType": "blob",
-          "compType": "application/x.example.sbom.document",
-          "version": "1",
+          "type": "blob",
           "descriptor": {
             "mediaType": "application/tar+gzip",
             "size": 7023,
@@ -148,7 +169,7 @@ Next we will show a Relation, used to store an SBOM for example. This has a cust
           }
         },
         {
-          "refType": "reference",
+          "type": "reference",
           "descriptor": {
             "mediaType": "application/vnd.oci.image.manifest.v1+json",
             "size": 7682,
@@ -161,7 +182,51 @@ Next we will show a Relation, used to store an SBOM for example. This has a cust
 }
 ```
 
-Now let us look at how this would map the following image manifest
+### Signature Reference Artifact
+
+A signature is persisted as a blob (` "artifactType": "application/vnd.cncf.notary"`), with a `"refType": "reference"` that points to the manifest it signs.
+
+![](media/signature-image.svg)
+
+```json
+{
+  "schemaVersion": "3",
+  "mediaType": "application/vnd.oci.distribution.manifest.v1+json",
+  "objects": [
+    {
+      "artifactType": "application/vnd.cncf.notary",
+      "version": "2",
+      "components": [
+        {
+          "type": "blob",
+          "descriptor": {
+            "mediaType": "application/tar+gzip",
+            "size": 7023,
+            "digest": "sha256:b5b2b2c507a0944348e0303114d8d93aaaa081732b86451d9bce1f432a537bc7"
+          },
+          "annotations": {
+            "org.cncf.notary.v2.signature.subject": "wabbit-networks.io"
+          }
+        },
+        {
+          "type": "reference",
+          "descriptor": {
+            "mediaType": "application/vnd.oci.image.manifest.v1+json",
+            "size": 7682,
+            "digest": "sha256:5b0bcabd1ed22e9fb1310cf6c2dec7cdef19f0ad69efa1f392e94a4333501270"
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+### OCI Image
+
+Now let us look at how this would map the oci image manifest. 
+
+The current `oci.image.manifest`:
 
 ```json
 {
@@ -187,11 +252,7 @@ Now let us look at how this would map the following image manifest
       "size": 73109,
       "digest": "sha256:ec4b8955958665577945c89419d1af06b5f7636b4ac3da7f12184802ad867736"
     }
-  ],
-  "annotations": {
-    "com.example.key1": "value1",
-    "com.example.key2": "value2"
-  }
+  ]
 }
 ```
 
@@ -207,9 +268,8 @@ Note that we should get clients to support this generic manifest for images too 
       "version": "2",
       "components": [
         {
-          "refType": "blob",
-          "compType": "application/vnd.oci.config",
-          "version": "2",
+          "type": "blob",
+          "mediaType": "application/vnd.oci.config",
           "descriptor": {
             "mediaType": "application/vnd.oci.image.config.v1+json",
             "size": 7023,
@@ -217,9 +277,8 @@ Note that we should get clients to support this generic manifest for images too 
           }
         },
         {
-          "refType": "blob",
-          "compType": "application/vnd.oci.layer",
-          "version": "2",
+          "type": "blob",
+          "mediaType": "application/vnd.oci.layer",
           "descriptor": {
             "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
             "size": 32654,
@@ -227,9 +286,8 @@ Note that we should get clients to support this generic manifest for images too 
           }
         },
         {
-          "refType": "blob",
-          "compType": "application/vnd.oci.layer",
-          "version": "2",
+          "type": "blob",
+          "mediaType": "application/vnd.oci.layer",
           "descriptor": {
             "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
             "size": 16724,
@@ -237,9 +295,8 @@ Note that we should get clients to support this generic manifest for images too 
           }
         },
         {
-          "refType": "blob",
-          "compType": "application/vnd.oci.layer",
-          "version": "2",
+          "type": "blob",
+          "mediaType": "application/vnd.oci.layer",
           "descriptor": {
             "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
             "size": 73109,
@@ -248,13 +305,100 @@ Note that we should get clients to support this generic manifest for images too 
         }
       ]
     }
-  ],
-  "annotations": {
-    "com.example.key1": "value1",
-    "com.example.key2": "value2"
-  }
+  ]
 }
 ```
+
+### OCI Image with Alternate Persistence
+
+To support multiple versions of an artifact, the collection of components can be expanded. In the below case, the `"compType": "application/vnd.oci.layer"` is used for standard oci images. With an additional collection of layers persisted as `"compType": "application/vnd.oci.layer.encrypted"`. A client that is unable to parse the encrypted content would pull blobs with: `"compType": "application/vnd.oci.layer"`. While clients capable of pulling encrypted layers pull the encrypted components.
+
+```json
+{
+  "schemaVersion": "3",
+  "mediaType": "application/vnd.oci.distribution.manifest.v1+json",
+  "objects": [
+    {
+      "artifactType": "application/vnd.oci.image",
+      "version": "2",
+      "components": [
+        {
+          "type": "blob",
+          "mediaType": "application/vnd.oci.config",
+          "version": "2",
+          "descriptor": {
+            "mediaType": "application/vnd.oci.image.config.v1+json",
+            "size": 7023,
+            "digest": "sha256:b5b2b2c507a0944348e0303114d8d93aaaa081732b86451d9bce1f432a537bc7"
+          }
+        },
+        {
+          "type": "blob",
+          "mediaType": "application/vnd.oci.layer",
+          "version": "2",
+          "descriptor": {
+            "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+            "size": 32654,
+            "digest": "sha256:9834876dcfb05cb167a5c24953eba58c4ac89b1adf57f28f2f9d09af107ee8f0"
+          }
+        },
+        {
+          "type": "blob",
+          "mediaType": "application/vnd.oci.layer",
+          "version": "2",
+          "descriptor": {
+            "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+            "size": 16724,
+            "digest": "sha256:3c3a4604a545cdc127456d94e421cd355bca5b528f4a9c1905b15da2eb4a4c6b"
+          }
+        },
+        {
+          "type": "blob",
+          "mediaType": "application/vnd.oci.layer",
+          "version": "2",
+          "descriptor": {
+            "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+            "size": 73109,
+            "digest": "sha256:ec4b8955958665577945c89419d1af06b5f7636b4ac3da7f12184802ad867736"
+          }
+        },
+        {
+          "type": "blob",
+          "mediaType": "application/vnd.oci.layer.encrypted",
+          "version": "2",
+          "descriptor": {
+            "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip+encrypted",
+            "size": 32655,
+            "digest": "sha256:0934876dcfb05cb167a5c24953eba58c4ac89b1adf57f28f2f9d09af107ee8fa"
+          }
+        },
+        {
+          "type": "blob",
+          "mediaType": "application/vnd.oci.layer.encrypted",
+          "version": "2",
+          "descriptor": {
+            "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip+encrypted",
+            "size": 16725,
+            "digest": "sha256:4c3a4604a545cdc127456d94e421cd355bca5b528f4a9c1905b15da2eb4a4c6c"
+          }
+        },
+        {
+          "type": "blob",
+          "mediaType": "application/vnd.oci.layer.encrypted",
+          "version": "2",
+          "descriptor": {
+            "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip+encrypted",
+            "size": 73110,
+            "digest": "sha256:fc4b8955958665577945c89419d1af06b5f7636b4ac3da7f12184802ad867738"
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Multi-Arch Artifacts
 
 To make a multiarch image directly, without indirecting via images, we can use filters.
 
@@ -266,14 +410,14 @@ To make a multiarch image directly, without indirecting via images, we can use f
     {
       "artifactType": "application/vnd.oci.image",
       "version": "2",
-      "filter": {
+      "filters": {
         "org.oci.os": "linux",
         "org.oci.architecture": "amd64"
       },
       "components": [
         {
-          "refType": "blob",
-          "compType": "application/vnd.oci.config",
+          "type": "blob",
+          "mediaType": "application/vnd.oci.config",
           "version": "2",
           "descriptor": {
             "mediaType": "application/vnd.oci.image.config.v1+json",
@@ -282,8 +426,8 @@ To make a multiarch image directly, without indirecting via images, we can use f
           }
         },
         {
-          "refType": "blob",
-          "compType": "application/vnd.oci.layer",
+          "type": "blob",
+          "mediaType": "application/vnd.oci.layer",
           "version": "2",
           "descriptor": {
             "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
@@ -292,8 +436,8 @@ To make a multiarch image directly, without indirecting via images, we can use f
           }
         },
         {
-          "refType": "blob",
-          "compType": "application/vnd.oci.layer",
+          "type": "blob",
+          "mediaType": "application/vnd.oci.layer",
           "version": "2",
           "descriptor": {
             "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
@@ -302,8 +446,8 @@ To make a multiarch image directly, without indirecting via images, we can use f
           }
         },
         {
-          "refType": "blob",
-          "compType": "application/vnd.oci.layer",
+          "type": "blob",
+          "mediaType": "application/vnd.oci.layer",
           "version": "2",
           "descriptor": {
             "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
@@ -316,14 +460,14 @@ To make a multiarch image directly, without indirecting via images, we can use f
     {
       "artifactType": "application/vnd.oci.image",
       "version": "2",
-      "filter": {
+      "filters": {
         "org.oci.os": "linux",
         "org.oci.architecture": "ppc64"
       },
       "components": [
         {
-          "refType": "blob",
-          "compType": "application/vnd.oci.config",
+          "type": "blob",
+          "mediaType": "application/vnd.oci.config",
           "version": "2",
           "descriptor": {
             "mediaType": "application/vnd.oci.image.config.v1+json",
@@ -332,8 +476,8 @@ To make a multiarch image directly, without indirecting via images, we can use f
           }
         },
         {
-          "refType": "blob",
-          "compType": "application/vnd.oci.layer",
+          "type": "blob",
+          "mediaType": "application/vnd.oci.layer",
           "version": "2",
           "descriptor": {
             "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
@@ -342,8 +486,8 @@ To make a multiarch image directly, without indirecting via images, we can use f
           }
         },
         {
-          "refType": "blob",
-          "compType": "application/vnd.oci.layer",
+          "type": "blob",
+          "mediaType": "application/vnd.oci.layer",
           "version": "2",
           "descriptor": {
             "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
@@ -352,8 +496,8 @@ To make a multiarch image directly, without indirecting via images, we can use f
           }
         },
         {
-          "refType": "blob",
-          "compType": "application/vnd.oci.layer",
+          "type": "blob",
+          "mediaType": "application/vnd.oci.layer",
           "version": "2",
           "descriptor": {
             "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
@@ -363,12 +507,6 @@ To make a multiarch image directly, without indirecting via images, we can use f
         }
       ]
     }
-  ],
-  "annotations": {
-    "com.example.key1": "value1",
-    "com.example.key2": "value2"
-  }
+  ]
 }
 ```
-
-This assumes that the annotations are global for the manifest we could move them to the component level. For the SBOM, if we were to attach one as a Property here it would apply to everything, so would be assuming it was a multi arch SBOM say. If we want to split things up with different SBOM per architecture, we would be better off splitting the images into different manifests, although we could devise something like Property that only applies to a single component here, for example we could add SBOM support as well as configs and layers in the image format, as it is just another reference type. This is the kind of flexibility this architecture gives us.

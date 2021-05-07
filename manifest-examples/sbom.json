@@ -7,9 +7,7 @@
       "version": "1",
       "components": [
         {
-          "refType": "blob",
-          "compType": "application/x.example.sbom.document",
-          "version": "1",
+          "type": "blob",
           "descriptor": {
             "mediaType": "application/tar+gzip",
             "size": 7023,
@@ -17,7 +15,7 @@
           }
         },
         {
-          "refType": "reference",
+          "type": "reference",
           "descriptor": {
             "mediaType": "application/vnd.oci.image.manifest.v1+json",
             "size": 7682,
