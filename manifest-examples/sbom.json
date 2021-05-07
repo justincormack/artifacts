@@ -3,13 +3,13 @@
   "mediaType": "application/vnd.oci.distribution.manifest.v1+json",
   "objects": [
     {
-      "artifactType": "application/vnd.cncf.notary",
-      "version": "2",
+      "artifactType": "application/x.example.sbom",
+      "version": "1",
       "components": [
         {
           "refType": "blob",
-          "compType": "application/vnd.cncf.notary.signature",
-          "version": "2",
+          "compType": "application/x.example.sbom.document",
+          "version": "1",
           "descriptor": {
             "mediaType": "application/tar+gzip",
             "size": 7023,
