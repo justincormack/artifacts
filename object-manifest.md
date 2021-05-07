@@ -14,7 +14,7 @@ From the point of view of someone describing a new type of artifact, it is flexi
 
 So to meet both use cases, we should have a format that has a lot of extensible metadata but it has a very simple structure for the operator to use for management operations. Let us look at the management side data model first.
 
-- **`manifest.mediaType`** *string*
+- **`mediaType`** *string*
 
   This field contains the `mediaType` of this document. This MUST be `application/vnd.oci.distribution.manifest.v1+json` for the JSON encoding or `application/vnd.oci.distribution.manifest.v1+jwt` for JSON web signature (RFC7515) encoding. The server needs this to return the media type to the application requesting this object.
 
