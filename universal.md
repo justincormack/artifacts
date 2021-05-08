@@ -62,6 +62,7 @@ The `objects` each correspond to items that the client may wish to process, and 
 
   A REQUIRED type for this object. Official allocations will be registered with iana.org, such as for container images (eg `application/vnd.oci.image`), and other allocations will be recommended to be registered as standard.
 
+
 - **`version`** *string*
 
   A REQUIRED version string for the type. Clients will normally look for an object with the latest version they understand, and fall back to older versions if they support them. Different versions may have different structures.
@@ -69,6 +70,7 @@ The `objects` each correspond to items that the client may wish to process, and 
 - **`filters`** *map string - string*
 
   An array of OPTIONAL keys and values for selecting among multiple object options that a client has. These are filters that the client will use to select which version of an image is most appropriate, for example selecting by architecture or any other appropriate choice. Common keys and values should be used where possible, such as `org.oci.architecture` so that common code and documentation can be reused. These are collected into a single map so a user interface can display them without understanding the object type.
+
 
 - **`components`** *array of components*
 
