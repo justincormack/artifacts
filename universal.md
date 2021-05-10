@@ -16,7 +16,7 @@ So to meet both use cases, we should have a format that has a lot of extensible 
 
 - **`mediaType`** *string*
 
-  This field contains the `mediaType` of this document. This MUST be `application/vnd.oci.distribution.manifest.v1+json` for the JSON encoding or `application/vnd.oci.distribution.manifest.v1+jwt` for JSON web signature (RFC7515) encoding. The server needs this to return the media type to the application requesting this object.
+  This field contains the `mediaType` of this document. This MUST be `application/vnd.oci.artifact.manifest.v1+json` for the JSON encoding or `application/vnd.oci.artifact.manifest.v1+jwt` for JSON web signature (RFC7515) encoding. The server needs this to return the media type to the application requesting this object.
 
 - **`blobs`** *array of objects*
 
@@ -48,7 +48,7 @@ Here is a draft of a generic metadata format that should work for any sort of co
 
 - **`mediaType`** *string*
 
-  This field contains the `mediaType` of this document. This MUST be `application/vnd.oci.distribution.manifest.v1+json` for the JSON encoding or `application/vnd.oci.distribution.manifest.v1+jwt` for JSON web signature (RFC7515) encoding. The JSON web signature encoding allows an inline signature on the object. Other formats could be allowed in future.
+  This field contains the `mediaType` of this document. This MUST be `application/vnd.oci.artifact.manifest.v1+json` for the JSON encoding or `application/vnd.oci.artifact.manifest.v1+jwt` for JSON web signature (RFC7515) encoding. The JSON web signature encoding allows an inline signature on the object. Other formats could be allowed in future.
 
 - **`objects`** *array of objects*
 
@@ -90,7 +90,7 @@ The `components` of an object correspond to individual parts, potentially of mul
 
 - **`type`** *string*
 
-  The type of the component, which MUST be `blob`, `reference`. A `type` of `reference` MUST refer to other manifests types, which MAY include `application/vnd.oci.distribution.manifest`, `application/vnd.oci.image.manifest` or `application/vnd.oci.image.index`.
+  The type of the component, which MUST be `blob`, `reference`. A `type` of `reference` MUST refer to other manifests types, which MAY include `application/vnd.oci.artifact.manifest`, `application/vnd.oci.image.manifest` or `application/vnd.oci.image.index`.
 
 - **`mediaType`** *string*
 
@@ -126,7 +126,7 @@ The most basic persistance of an object within a registry can be a single file, 
 ```json
 {
   "schemaVersion": "3",
-  "mediaType": "application/vnd.oci.distribution.manifest.v1+json",
+  "mediaType": "application/vnd.oci.artifact.manifest.v1-rc1+json",
   "objects": [
     {
       "artifactType": "application/x.example.document",
@@ -155,7 +155,7 @@ Next we will show a Relation, used to store an SBoM or a signature. The `"refTyp
 ```json
 {
   "schemaVersion": "3",
-  "mediaType": "application/vnd.oci.distribution.manifest.v1+json",
+  "mediaType": "application/vnd.oci.artifact.manifest.v1+json",
   "objects": [
     {
       "artifactType": "application/x.example.sbom",
@@ -192,7 +192,7 @@ A signature is persisted as a blob (` "artifactType": "application/vnd.cncf.nota
 ```json
 {
   "schemaVersion": "3",
-  "mediaType": "application/vnd.oci.distribution.manifest.v1+json",
+  "mediaType": "application/vnd.oci.artifact.manifest.v1+json",
   "objects": [
     {
       "artifactType": "application/vnd.cncf.notary",
@@ -262,7 +262,7 @@ Note that we should get clients to support this generic manifest for images too 
 ```json
 {
   "schemaVersion": "3",
-  "mediaType": "application/vnd.oci.distribution.manifest.v1+json",
+  "mediaType": "application/vnd.oci.artifact.manifest.v1+json",
   "objects": [
     {
       "artifactType": "application/vnd.oci.image",
@@ -317,7 +317,7 @@ To support multiple versions of an artifact, the collection of components can be
 ```json
 {
   "schemaVersion": "3",
-  "mediaType": "application/vnd.oci.distribution.manifest.v1+json",
+  "mediaType": "application/vnd.oci.artifact.manifest.v1+json",
   "objects": [
     {
       "artifactType": "application/vnd.oci.image",
@@ -406,7 +406,7 @@ To make a multiarch image directly, without indirecting via images, we can use f
 ```json
 {
   "schemaVersion": "3",
-  "mediaType": "application/vnd.oci.distribution.manifest.v1+json",
+  "mediaType": "application/vnd.oci.artifact.manifest.v1+json",
   "objects": [
     {
       "artifactType": "application/vnd.oci.image",
