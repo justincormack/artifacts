@@ -15,7 +15,7 @@
           }
         },
         {
-          "type": "reference",
+          "type": "manifest",
           "descriptor": {
             "mediaType": "application/vnd.oci.image.manifest.v1+json",
             "size": 7682,

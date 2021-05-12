@@ -22,7 +22,7 @@ So to meet both use cases, we should have a format that has a lot of extensible 
 
   An optional set of references to blobs. Each object MUST have a descriptor. From the server point of view the only pieces that matter for the descriptor are **`digest`**, used to find the object in the content store, and **`size`** which is used to check the expected size if the server needs to fetch the object, and potentially for hash collision attack detection. The server data model does not need to know the media type, as it simply needs to know this is a blob so it does not need to track further links. The **`urls`** property in the descriptor, and the **`annotations`** are just for client side use. Note there is no separate model for `config` here; as far as the server data model is concerned this is simply another blob. Below we will discuss how the client distinguishes the different sorts of blob. The server is also not concerned about the ordering of blobs or references, so it can store these in a relation.
 
-- **`references`** *array of objects*
+- **`manifests`** *array of objects*
 
   An optional set of references to other artifact manifests, of this type or of other supported types that may themselves point to blobs or other references. Each object MUST have a descriptor. The descriptor MUST have **`digest`** and **`size`**. These will be traversed for garbage collection. A registry will generally want to reject uploads of manifests with references that point to objects that it cannot parse or interpret as valid.
 
@@ -32,14 +32,14 @@ The existing formats assume that one document corresponds to one version of one 
 
 For that reason this proposal has a much more generic approach, such that a document can contain several different versions of a single piece of content, suitable for different users or clients. This also means that it could include both a container image and a Helm chart; this would generally be discouraged but is a necessary byproduct of a flexible schema that supports generic upgrade paths. Upgrade will never work smoothly unless you can include both old and new versions in the same object and let a client pick the one that it understands. This proposal is also generic enough to support mappings of all existing artifact types to its format, as it is sufficiently generic, and we would recommend that we switch to using this for every type of object, rather than having specialised types. A registry can internally convert other types to this format before processing, to make them conform to the data model of this object manifest type.
 
-We also want to improve the structure of generic metadata that applications can use for their own purposes. In particular we want to have another optional generic list of items that make up an object that does not include descriptors, in addition to `blobs` and `references` above. These could be used to refer to a list of components that are not necessarily in the repository, or referring to components by tag, or components that are purely inline in the manifest, such as data URLs or additional signatures. This allows additional flexibility. In addition the current annotations are restrictive in that they do not allow annotations to be lists, while some of the existing structures that we want to potentially map to annotations are lists. For this reason we allow all annotations to be lists (or if simpler, require them all to be singleton lists if only one item). For example an item that applies to both Linux and FreeBSD but not windows could be tagged with the list of operating systems it supports. We want to be able to represent something like a config within an object if that is more convenient than using an external reference. This can be done by using the generic item list as well.
+We also want to improve the structure of generic metadata that applications can use for their own purposes. In particular we want to have another optional generic list of items that make up an object that does not include descriptors, in addition to `blobs` and `manifests` above. These could be used to refer to a list of components that are not necessarily in the repository, or referring to components by tag, or components that are purely inline in the manifest, such as data URLs or additional signatures. This allows additional flexibility. In addition the current annotations are restrictive in that they do not allow annotations to be lists, while some of the existing structures that we want to potentially map to annotations are lists. For this reason we allow all annotations to be lists (or if simpler, require them all to be singleton lists if only one item). For example an item that applies to both Linux and FreeBSD but not windows could be tagged with the list of operating systems it supports. We want to be able to represent something like a config within an object if that is more convenient than using an external reference. This can be done by using the generic item list as well.
 
 
 Here is a draft of a generic metadata format that should work for any sort of content in future. Below we show how existing manifests map to it and some generic ones that clients should understand. This is an outline design of what I think is approximately the right level of generality, but it can probably be tweaked to make things easier for clients. The design requirements are as follows:
 1. Any number of objects can be stored in a manifest. This can include different versions of the same image format, either for schema upgrades, or different versions for different architectures as we have for image index now. Other use cases are possible such as an index document that simply covers a number of blobs, or a Helm chart that has the chart information and a set of images in the standard image format in the same manifest.
 2. Clients rank their preference for objects and search for a match, much as happens with multi arch now. Clients will generally prefer newer formats over old ones, and their specific architecture matches over worse ones. Generic clients might have user configuration. Note that multi arch can be included in a single manifest rather than indirecting to image manifests, making fetching more efficient.
 3. A few generic object types are supported. Notably these include "Pointer", "Relation" and "Property". Pointer is simply an object that points at another one which should be dereferenced. A signed Pointer object can be used for a detached signature. Relation is a pointer, a type, and a second object which is related, used for adding metadata such as an SBOM to an existing object; again a client that is not interested in the SBOM should just follow the link to the primary object. "Property" is like a pointer but is stored within a manifest and links to a property of that manifest itself, used if you want to say store an SBOM at build time in the same object, to avoid an extra redirection.
-4. We support items in a manifest that have neither blobs nor references, so that the server side does not care about these. This allows manifests to do things like reference foreign layers or images by tag that are not actually references at all, but make the client side processing more consistent.
+4. We support items in a manifest that have neither blobs nor manifest references, so that the server side does not care about these. This allows manifests to do things like reference foreign layers or images by tag that are not actually references at all, but make the client side processing more consistent.
 5. The manifest as a whole does not have a type, only the objects in it.
 
 - **`schemaVersion`** *int*
@@ -74,7 +74,7 @@ The `objects` each correspond to items that the client may wish to process, and 
 
 - **`components`** *array of components*
 
-  An array of OPTIONAL components of the object, such as layers and config for an image. See below for details, this is parsed to extract the `blob` and `reference` links for gc.
+  An array of OPTIONAL components of the object, such as layers and config for an image. See below for details, this is parsed to extract the `blob` and `manifest` links for gc.
 
 - **`annotations`** *string-string map*
 
@@ -90,7 +90,7 @@ The `components` of an object correspond to individual parts, potentially of mul
 
 - **`type`** *string*
 
-  The type of the component, which MUST be `blob`, `reference`. A `type` of `reference` MUST refer to other manifests types, which MAY include `application/vnd.oci.artifact.manifest`, `application/vnd.oci.image.manifest` or `application/vnd.oci.image.index`.
+  The type of the component, which MUST be `blob` or `manifest`. A `type` of `manifest` MUST refer to other manifests types, which MAY include `application/vnd.oci.artifact.manifest`, `application/vnd.oci.image.manifest` or `application/vnd.oci.image.index`.
 
 - **`mediaType`** *string*
 
@@ -102,7 +102,7 @@ The `components` of an object correspond to individual parts, potentially of mul
 
 - **`descriptor`** *descriptor*
 
-  Standard OCI descriptor. If the component is not a `blob` or `reference` this will be ignored but the client can use it, eg for a foreign layer or for some other reference type that still wants to verify a hash, such as a bridge to another system.
+  Standard OCI descriptor. If the component is not a `blob` or `manifest` this will be ignored but the client can use it, eg for a foreign layer or for some other reference type that still wants to verify a hash, such as a bridge to another system.
 
 - **`annotations`** *string-string map*
 
@@ -170,7 +170,7 @@ Next we will show a Relation, used to store an SBoM or a signature. The `"refTyp
           }
         },
         {
-          "type": "reference",
+          "type": "manifest",
           "descriptor": {
             "mediaType": "application/vnd.oci.image.manifest.v1+json",
             "size": 7682,
@@ -210,7 +210,7 @@ A signature is persisted as a blob (` "artifactType": "application/vnd.cncf.nota
           }
         },
         {
-          "type": "reference",
+          "type": "manifest",
           "descriptor": {
             "mediaType": "application/vnd.oci.image.manifest.v1+json",
             "size": 7682,
